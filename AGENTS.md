@@ -17,22 +17,28 @@ a "Local + args" runtime. Only the non-obvious things.
   wrangler's leaf-import scanner quarantines any own file that imports `../index.js`,
   so tests and scripts import `server/manifest.js`, never the root.
 - The dialog field (`public/index.js`, a `dispatch.field` contribution) sends
-  `ext.args`; `onBeforeDispatch` stores it per card id (`server/store.js`, persisted
-  so resume survives a restart), `preflight` validates it before anything is created,
-  and a fork copies its parent's entry via `parentId`. Settings hold per-agent defaults.
+  `ext.args`; `onBeforeDispatch` only stages it in memory. `wrapLaunch` pins the
+  effective args (dialog args, else the agent's Settings default, else the parent's on
+  a fork) to the card in `server/store.js`, so resume and fork repeat them exactly,
+  even after a restart or a change to the defaults. The pin is written to disk first
+  and a failure fails the launch. `preflight` validates the dialog args, or the
+  default it would fall back to, before anything is created.
 - The runtime's `wrapLaunch({ inner, sessionId, parentId, settings, host })` is called
   at dispatch, resume and fork. `server/args.js` finds the `claude` or `codex` binary in `inner` and inserts
   the configured flags right after it. Flags before a Codex subcommand
   (`codex --search resume <id>`) are accepted by Codex 0.163.
 - Flags the wrangler manages itself are refused (`RESERVED` in `server/args.js`);
   single-dash tokens are checked letter by letter so `-sdanger-full-access` and `-rc`
-  can't slip through. Keep that list in step with core's args.
+  can't slip through. `server/core.test.js` fails when a flag core puts on a launch
+  command is missing from `RESERVED`, or when core's command shape stops matching.
 - A bad setting throws from `wrapLaunch`, which fails the launch loudly instead of
-  starting an agent without the flags.
+  starting an agent without the args.
 
 ## Commands
 
-- `npm test` runs `node --test` over `server/*.test.js`.
+- `npm test` runs `node --test` over `server/*.test.js` and `public/*.test.js`.
+  With `AW_REPO=<agent-wrangler checkout>` set (CI does) it also runs `server/core.test.js`
+  against core's real adapters; without it those two tests skip.
 - `AW_REPO=<agent-wrangler checkout> node scripts/validate-manifest.mjs` runs the
   real loader over this repo.
 - Dev install: **copy** (never symlink; discovery only sees real directories) this

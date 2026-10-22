@@ -6,17 +6,18 @@ function contribution() {
   let c;
   ext.register({ register: (slot, def) => { assert.equal(slot, 'dispatch.field'); c = def; } });
   const input = { value: '' };
-  const el = { hidden: false, innerHTML: '', querySelector: () => input };
-  return { c, el, input };
+  const field = { style: { display: '' } };
+  const el = { innerHTML: '', querySelector: (sel) => (sel === 'input' ? input : field) };
+  return { c, el, input, field };
 }
 
 test('registers in Advanced options and hides unless the Local + args runtime is selected', () => {
-  const { c, el } = contribution();
+  const { c, el, field } = contribution();
   assert.equal(c.at, 'advanced');
   c.update(el, { draft: { runtime: 'local' } });
-  assert.equal(el.hidden, true);
+  assert.equal(field.style.display, 'none');
   c.update(el, { draft: { runtime: 'local-args' } });
-  assert.equal(el.hidden, false);
+  assert.equal(field.style.display, '');
 });
 
 test('sends flags only on this runtime, restores a saved value on open', () => {

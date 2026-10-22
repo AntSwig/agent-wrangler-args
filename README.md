@@ -13,10 +13,10 @@ for example `--chrome` for Claude or `--search` for Codex.
    **Launch args** field appears: type args for this session, such as `--chrome`
    for Claude or `--search` for Codex.
 3. Optionally set per-agent defaults in **Settings → Extensions → Agent Wrangler args**.
-   They apply when the field is left empty.
+   They apply to new sessions when the field is left empty.
 
-The flags are saved with the session and apply on launch, resume and fork (a fork
-carries its parent's flags). Flags Agent Wrangler manages itself (session id,
+The args a session launches with are saved with it and repeated on every resume and
+fork (a fork carries its parent's), even if you later change the defaults. Flags Agent Wrangler manages itself (session id,
 permissions, MCP, model, sandbox) are refused before anything launches. A flag the
 agent does not recognise makes its CLI exit, so the session pane closes.
 

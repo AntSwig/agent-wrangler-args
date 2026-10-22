@@ -1,4 +1,4 @@
-// Client half: a "Agent Wrangler args" text field in the dispatch dialog's Advanced options,
+// Client half: a "Launch args" text field in the dispatch dialog's Advanced options,
 // shown only while the Local + args runtime is selected. Its value rides the dispatch
 // as `ext.agent-wrangler-args.args`; the server half stores it against the new card.
 const RUNTIME_ID = 'local-args';
@@ -18,7 +18,8 @@ export default {
       at: 'advanced',
       mount(el) { el.innerHTML = HTML; },
       // The field only means something on this runtime, so it hides on any other.
-      update(el, ctx) { el.hidden = ctx.draft.runtime !== RUNTIME_ID; },
+      // An inline style, not `hidden`: the host element is `display: contents`, which overrides it.
+      update(el, ctx) { el.querySelector('.dispatch-field').style.display = ctx.draft.runtime === RUNTIME_ID ? '' : 'none'; },
       // `undefined` sends nothing, so other runtimes' dispatches carry no bag.
       ext(el, ctx) {
         const args = inputOf(el).value.trim();
