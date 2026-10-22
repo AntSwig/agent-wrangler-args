@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { addArgs, parseArgs, RESERVED } from './args.js';
+import { addArgs, quote, RESERVED, tokenize } from './args.js';
 
 // Runs against the real agent-wrangler adapters when AW_REPO points at a checkout
 // (CI sets it), so a change to core's command shape or launch flags fails here.
@@ -36,8 +36,8 @@ test('every flag core puts on a launch command is reserved here', { skip }, asyn
   for (const list of Object.values(cmds)) {
     for (const cmd of list) {
       const rest = cmd.slice(cmd.search(/(?:^|\s)(claude|codex) '/) + 1);
-      // Re-split the quoted command; flag-shaped tokens are core's own launch flags.
-      for (const token of parseArgsLoose(rest)) if (/^--?[A-Za-z]/.test(token)) seen.add(token.split('=')[0]);
+      // Flag-shaped tokens in the quoted command are core's own launch flags.
+      for (const token of tokenize(rest)) if (/^--?[A-Za-z]/.test(token)) seen.add(token.split('=')[0]);
     }
   }
   const missing = [...seen].filter((f) => !RESERVED.has(f));
@@ -45,14 +45,7 @@ test('every flag core puts on a launch command is reserved here', { skip }, asyn
   assert.ok(seen.size > 8, 'expected to see core\'s launch flags');
 });
 
-// Shell-style split without the policy checks (core's own flags are reserved by design).
-function parseArgsLoose(cmd) {
-  const out = [];
-  const re = /'((?:[^']|'\\'')*)'|(\S+)/g;
-  for (const m of cmd.matchAll(re)) out.push(m[1] !== undefined ? m[1].replace(/'\\''/g, "'") : m[2]);
-  return out;
-}
-
-test('the reserved list still refuses what it names (sanity)', () => {
-  assert.throws(() => parseArgs('--permission-mode x'));
+test('our shell quoting matches core\'s shellQuote', { skip }, async () => {
+  const { shellQuote } = await load('server/agents/claude.js');
+  for (const s of ['plain', "it's", 'a b; rm -rf /', '', '--x=y z']) assert.equal(quote(s), shellQuote(s));
 });

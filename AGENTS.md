@@ -16,23 +16,16 @@ a "Local + args" runtime. Only the non-obvious things.
 - `server/manifest.js` is the manifest; the root `index.js` only re-exports it. The
   wrangler's leaf-import scanner quarantines any own file that imports `../index.js`,
   so tests and scripts import `server/manifest.js`, never the root.
-- The dialog field (`public/index.js`, a `dispatch.field` contribution) sends
-  `ext.args`; `onBeforeDispatch` only stages it in memory. `wrapLaunch` pins the
-  effective args (dialog args, else the agent's Settings default, else the parent's on
-  a fork) to the card in `server/store.js`, so resume and fork repeat them exactly,
-  even after a restart or a change to the defaults. The pin is written to disk first
-  and a failure fails the launch. `preflight` validates the dialog args, or the
-  default it would fall back to, before anything is created.
-- The runtime's `wrapLaunch({ inner, sessionId, parentId, settings, host })` is called
-  at dispatch, resume and fork. `server/args.js` finds the `claude` or `codex` binary in `inner` and inserts
-  the configured flags right after it. Flags before a Codex subcommand
-  (`codex --search resume <id>`) are accepted by Codex 0.163.
-- Flags the wrangler manages itself are refused (`RESERVED` in `server/args.js`);
-  single-dash tokens are checked letter by letter so `-sdanger-full-access` and `-rc`
-  can't slip through. `server/core.test.js` fails when a flag core puts on a launch
-  command is missing from `RESERVED`, or when core's command shape stops matching.
-- A bad setting throws from `wrapLaunch`, which fails the launch loudly instead of
-  starting an agent without the args.
+- The dialog field (`public/index.js`, a `dispatch.field`) sends `ext.args`;
+  `onBeforeDispatch` only stages it. `wrapLaunch` pins the effective args (dialog, else
+  the parent's on a fork, else the agent's Settings default) to the card in
+  `server/store.js`, writing to disk first and failing the launch if it cannot. Resume
+  and fork then repeat them exactly, even after a restart or a change to the defaults.
+  `preflight` validates the dialog args, or the default it would fall back to, before
+  anything is created.
+- `server/args.js` inserts the args right after the `claude` or `codex` binary in
+  core's finished command. `server/core.test.js` (needs `AW_REPO`) fails if core's
+  command shape or launch flags drift from `RESERVED` or the regex.
 
 ## Commands
 

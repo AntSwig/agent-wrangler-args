@@ -11,10 +11,10 @@ export const RESERVED = new Set([
   '--dangerously-bypass-approvals-and-sandbox', '--yolo', '--full-auto', '--cd', '-C',
 ]);
 
-const quote = (s) => `'${String(s).replace(/'/g, `'\\''`)}'`;
+export const quote = (s) => `'${String(s).replace(/'/g, `'\\''`)}'`;
 
-// Shell-style split honouring quotes and backslash escapes; throws on bad input.
-export function parseArgs(value) {
+// Shell-style split honouring quotes and backslash escapes; throws on an unterminated quote.
+export function tokenize(value) {
   const args = [];
   let cur = '';
   let inToken = false;
@@ -33,6 +33,12 @@ export function parseArgs(value) {
   }
   if (q) throw new Error('Args have an unterminated quote.');
   if (inToken) args.push(cur);
+  return args;
+}
+
+// Tokenize, then refuse anything the wrangler manages itself.
+export function parseArgs(value) {
+  const args = tokenize(value);
   if (args.length && !args[0].startsWith('-')) throw new Error(`Args must start with a flag (got "${args[0]}").`);
   for (const token of args) {
     if (token === '--') throw new Error('Args cannot contain a bare "--".');
@@ -62,7 +68,7 @@ export const agentOf = (inner) => locate(inner)[2];
 // Inserts the (already chosen) args string right after the agent binary.
 export function addArgs(inner, value) {
   const m = locate(inner);
-  const args = parseArgs(String(value || '').trim());
+  const args = parseArgs(value);
   if (!args.length) return inner;
   return `${m[1]}${m[2]} ${args.map(quote).join(' ')}${inner.slice(m[0].length)}`;
 }

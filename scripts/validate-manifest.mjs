@@ -10,7 +10,7 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { pathToFileURL } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const repo = process.env.AW_REPO && path.resolve(process.env.AW_REPO.replace(/^~/, os.homedir()));
 if (!repo || !fs.existsSync(path.join(repo, 'server/extensions/index.js'))) {
@@ -24,7 +24,7 @@ const { discoverExternal } = await mod('server/extensions/external.js');
 const { buildHostApi } = await mod('server/host-api/index.js');
 const { HOST_API_VERSION } = await mod('server/host-api/version.js');
 
-const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
+const root = fileURLToPath(new URL('..', import.meta.url));
 let failed = false;
 const fail = (msg) => { failed = true; console.error('✗', msg); };
 const ok = (msg) => console.log('✓', msg);
@@ -33,7 +33,7 @@ const ok = (msg) => console.log('✓', msg);
 //    only sees real directories, so a symlinked dev install is never found).
 const extDir = fs.mkdtempSync(path.join(os.tmpdir(), 'agent-wrangler-args-ext-'));
 const declared = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8')).wranglerExtension;
-fs.cpSync(root, path.join(extDir, declared.id), { recursive: true, filter: (src) => !src.includes(`${path.sep}.git`) });
+fs.cpSync(root, path.join(extDir, declared.id), { recursive: true, filter: (src) => !/[\\/](\.git|node_modules)$/.test(src) });
 const [found] = await discoverExternal({ dir: extDir, provenance: {} });
 if (!found) fail('discoverExternal found nothing');
 else if (found.quarantine) fail(`discovery quarantined: ${found.quarantine}`);
@@ -46,6 +46,9 @@ if (manifest.id !== declared.id) fail(`manifest id "${manifest.id}" != package.j
 const undisclosed = (manifest.requires || []).filter((c) => !(declared.requires || []).includes(c));
 if (undisclosed.length) fail(`manifest requires more than package.json discloses: ${undisclosed.join(', ')}`);
 else ok('requires ⊆ disclosed requires');
+for (const [key, mine, theirs] of [['label', manifest.label, declared.label], ['description', manifest.description, declared.description], ['author', manifest.author, declared.author], ['homepage', manifest.homepage, declared.homepage], ['engines.wranglerApi', manifest.engines?.wranglerApi, declared.engines?.wranglerApi]]) {
+  if (mine !== theirs) fail(`manifest ${key} "${mine}" != package.json wranglerExtension.${key} "${theirs}"`);
+}
 
 // 3. The loader: the runtime must register without a quarantine.
 const loaded = loadExtensions({ cfg: {}, builtin: [{ ...manifest, external: true }], coreToolNames: [], coreHandlerTypes: [] });

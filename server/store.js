@@ -4,14 +4,13 @@ import path from 'node:path';
 
 const FILE = path.join(process.env.AW_DATA_DIR || path.join(os.homedir(), '.agent-wrangler'), 'agent-wrangler-args.json');
 
-// The args each session was launched with, keyed by card id, so resume (same card)
-// and fork (the parent's card) re-apply exactly what the first launch used, even
-// after a restart or a change to the Settings defaults. '' means "launched with none".
+// The args each session launched with, by card id: a mirror of the file on disk.
+// '' means "launched with none". Dialog args wait in `pending` until the launch pins them.
 export class ArgsStore {
   constructor(file = FILE) {
     this.file = file;
     this.args = new Map();
-    this.staged = new Set(); // in memory only, not yet written to disk
+    this.pending = new Map();
     let raw;
     try {
       raw = fs.readFileSync(file, 'utf8');
@@ -29,36 +28,32 @@ export class ArgsStore {
     }
   }
 
-  has(sessionId) { return this.args.has(sessionId) && !this.staged.has(sessionId); }
+  // Pinned on disk?
+  has(sessionId) { return this.args.has(sessionId); }
 
-  // The args typed in the dialog: held in memory until the launch pins them.
-  stage(sessionId, value) {
-    this.args.set(sessionId, value);
-    this.staged.add(sessionId);
-  }
+  // Pinned args, else dialog args not yet pinned, else undefined.
+  get(sessionId) { return this.args.get(sessionId) ?? this.pending.get(sessionId); }
 
-  get(sessionId) { return this.args.get(sessionId) || ''; }
+  stage(sessionId, value) { this.pending.set(sessionId, value); }
 
   // Writes to disk first and throws on failure, so a launch can't proceed unrecorded.
   set(sessionId, value) {
-    this._save({ ...Object.fromEntries(this.args), [sessionId]: value });
-    this.args.set(sessionId, value);
-    this.staged.delete(sessionId);
+    this._commit((next) => next.set(sessionId, value));
+    this.pending.delete(sessionId);
   }
 
   forget(sessionId) {
-    this.staged.delete(sessionId);
-    if (!this.args.has(sessionId)) return;
-    const next = Object.fromEntries(this.args);
-    delete next[sessionId];
-    this._save(next);
-    this.args.delete(sessionId);
+    this.pending.delete(sessionId);
+    if (this.args.has(sessionId)) this._commit((next) => next.delete(sessionId));
   }
 
-  _save(obj) {
+  _commit(mutate) {
+    const next = new Map(this.args);
+    mutate(next);
     fs.mkdirSync(path.dirname(this.file), { recursive: true });
     const tmp = `${this.file}.${process.pid}.tmp`;
-    fs.writeFileSync(tmp, JSON.stringify(obj));
+    fs.writeFileSync(tmp, JSON.stringify(Object.fromEntries(next)));
     fs.renameSync(tmp, this.file);
+    this.args = next;
   }
 }

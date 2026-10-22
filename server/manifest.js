@@ -2,12 +2,10 @@ import { fileURLToPath } from 'node:url';
 import { addArgs, agentOf, defaultArgs, parseArgs } from './args.js';
 import { ArgsStore } from './store.js';
 
-// The extension manifest. The repo root's index.js re-exports this: the wrangler's
-// leaf-import scanner quarantines any own file importing '../index.js', so tests and
-// scripts import THIS module, never the root.
+// The manifest. The root index.js re-exports it (see AGENTS.md for why).
 export const dir = fileURLToPath(new URL('..', import.meta.url));
 
-export const RUNTIME_ID = 'local-args';
+const RUNTIME_ID = 'local-args';
 
 // The dialog's args arrive as `ext.args`; '' when nothing was sent.
 const argsFrom = (ext) => (typeof ext?.args === 'string' ? ext.args.trim() : '');
@@ -27,10 +25,14 @@ export default {
   dir,
   requires: [],
   engines: { wranglerApi: '^1.37.0' },
-  settings: [
-    { key: 'claudeArgs', type: 'text', label: 'Default Claude args', placeholder: '--chrome', maxLength: 500, help: 'Used on the Local + args runtime when no args are typed in the dispatch dialog.' },
-    { key: 'codexArgs', type: 'text', label: 'Default Codex args', placeholder: '--search', maxLength: 500, help: 'Used on the Local + args runtime when no args are typed in the dispatch dialog.' },
-  ],
+  settings: [['claude', '--chrome'], ['codex', '--search']].map(([agent, placeholder]) => ({
+    key: `${agent}Args`,
+    type: 'text',
+    label: `Default ${agent === 'claude' ? 'Claude' : 'Codex'} args`,
+    placeholder,
+    maxLength: 500,
+    help: 'Used on the Local + args runtime when no args are typed in the dispatch dialog.',
+  })),
   stores: { args: () => new ArgsStore() },
   session: {
     // Runs after the card id exists and before the command is built. Staged in memory
@@ -53,11 +55,8 @@ export default {
     },
     wrapLaunch: async ({ inner, sessionId, parentId, settings, host }) => {
       const store = host.stores.args;
-      let args;
-      if (store.has(sessionId)) args = store.get(sessionId); // resume, or a launch already pinned
-      else if (store.get(sessionId)) args = store.get(sessionId); // staged from the dialog
-      else if (parentId && store.has(parentId)) args = store.get(parentId); // fork
-      else args = defaultArgs(agentOf(inner), settings);
+      // Already pinned (resume), typed in the dialog, a fork's parent, else the agent's default.
+      const args = store.get(sessionId) ?? store.get(parentId) ?? defaultArgs(agentOf(inner), settings);
       if (!store.has(sessionId)) store.set(sessionId, args); // throws if it cannot be written
       return addArgs(inner, args);
     },

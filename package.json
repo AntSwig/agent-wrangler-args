@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "An Agent Wrangler extension: a 'Local + args' runtime that adds configured CLI flags to Claude and Codex launches.",
+  "description": "An Agent Wrangler extension: a 'Local + args' runtime that adds CLI args to Claude and Codex launches.",
   "license": "Apache-2.0",
   "scripts": {
     "test": "node --test server/*.test.js public/*.test.js"
@@ -11,7 +11,7 @@
   "wranglerExtension": {
     "id": "agent-wrangler-args",
     "label": "Agent Wrangler args",
-    "description": "A 'Local + args' runtime that adds configured CLI flags to Claude and Codex launches.",
+    "description": "A 'Local + args' runtime that adds CLI args to Claude and Codex launches.",
     "author": "Anthony Lawton",
     "homepage": "https://github.com/AntSwig/agent-wrangler-args",
     "requires": [],

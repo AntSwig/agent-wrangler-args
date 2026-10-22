@@ -1,4 +1,4 @@
-import test from 'node:test';
+import test, { after } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -7,7 +7,9 @@ import manifest from './manifest.js';
 import { ArgsStore } from './store.js';
 
 const rt = manifest.runtimes[0];
-const tmp = () => path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'aw-args-')), 'args.json');
+const dirs = [];
+const tmp = () => { const d = fs.mkdtempSync(path.join(os.tmpdir(), 'aw-args-')); dirs.push(d); return path.join(d, 'args.json'); };
+after(() => dirs.forEach((d) => fs.rmSync(d, { recursive: true, force: true })));
 const host = (file = tmp()) => ({ stores: { args: new ArgsStore(file) }, file });
 const inner = `AW_SESSION_ID='s' claude '--session-id' 's'`;
 const launch = (h, over = {}) => rt.wrapLaunch({ inner, sessionId: 'A', settings: {}, host: h, ...over });
